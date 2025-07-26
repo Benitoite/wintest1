@@ -1,4 +1,4 @@
-name: Build GTK Native Bundle
+name: Build GTK Native Bundle with JPEG and FriBidi
 
 on:
   push:
@@ -12,10 +12,10 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Source
         uses: actions/checkout@v4
 
-      - name: Install MSYS2 and GTK3
+      - name: Install MSYS2 with GTK3 + JPEG + FriBidi
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
@@ -23,27 +23,29 @@ jobs:
           install: >-
             mingw-w64-x86_64-toolchain
             mingw-w64-x86_64-gtk3
+            mingw-w64-x86_64-libjpeg-turbo
+            mingw-w64-x86_64-fribidi
             mingw-w64-x86_64-pkg-config
             mingw-w64-x86_64-gtk-update-icon-cache
 
-      - name: Compile GTK app
+      - name: Build Application
         shell: msys2 {0}
         run: |
           g++ main.cpp -o gtk_native_window.exe \
-            `pkg-config --cflags --libs gtk+-3.0` \
+            `pkg-config --cflags --libs gtk+-3.0 fribidi libjpeg` \
             -mwindows
 
-      - name: Create runtime bundle
+      - name: Create Portable Bundle
         shell: msys2 {0}
         run: |
           mkdir -p bundle
           cp gtk_native_window.exe bundle/
 
-          # Copy required DLLs from GTK and dependencies
+          # Copy required runtime DLLs
           for dll in \
             libatk-1.0-0.dll \
-            libbrotlidec.dll \
             libbrotlicommon.dll \
+            libbrotlidec.dll \
             libcairo-2.dll \
             libcairo-gobject-2.dll \
             libepoxy-0.dll \
@@ -51,6 +53,7 @@ jobs:
             libffi-8.dll \
             libfontconfig-1.dll \
             libfreetype-6.dll \
+            libfribidi-0.dll \
             libgdk-3-0.dll \
             libgdk_pixbuf-2.0-0.dll \
             libgio-2.0-0.dll \
@@ -61,6 +64,7 @@ jobs:
             libharfbuzz-0.dll \
             libiconv-2.dll \
             libintl-8.dll \
+            libjpeg-8.dll \
             libpango-1.0-0.dll \
             libpangocairo-1.0-0.dll \
             libpangoft2-1.0-0.dll \
@@ -73,8 +77,8 @@ jobs:
               cp /mingw64/bin/$dll bundle/
           done
 
-      - name: Upload bundle
+      - name: Upload Bundle Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gtk-native-bundle
+          name: gtk-native-bundle-with-jpeg-fribidi
           path: bundle/
