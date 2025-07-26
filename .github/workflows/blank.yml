@@ -1,41 +1,39 @@
-name: Build Windows GTK App
+name: Build Native GTK Window (Windows)
 
 on:
   push:
     paths:
       - '**.cpp'
       - '.github/workflows/**'
-  pull_request:
   workflow_dispatch:
 
 jobs:
   build-windows:
     runs-on: windows-latest
 
-    defaults:
-      run:
-        shell: msys2 {0}
-
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up MSYS2
+      - name: Install MSYS2
         uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64
+          update: true
           install: >-
-            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-toolchain
             mingw-w64-x86_64-gtk3
             mingw-w64-x86_64-pkg-config
-            mingw-w64-x86_64-make
+          msystem: MINGW64
 
-      - name: Build executable
+      - name: Build with g++
+        shell: msys2 {0}
         run: |
-         g++ main.cpp -o gtk_native_window.exe `pkg-config --cflags --libs gtk+-3.0` -mwindows
+          g++ main.cpp -o gtk_native_window.exe \
+            `pkg-config --cflags --libs gtk+-3.0` \
+            -mwindows
 
-      - name: Upload executable
+      - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gtk_native_dark
-          path: gtk_native_dark.exe
+          name: gtk-native-window-exe
+          path: gtk_native_window.exe
