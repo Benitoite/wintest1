@@ -41,7 +41,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
     wc.lpszClassName = CLASS_NAME;
     RegisterClass(&wc);
 
-    HWND hwnd = CreateWindowEx(
+    HWND hwnd = CreateWindowExW(
         0, CLASS_NAME, L"Native Win32 Wrapper",
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, 800, 600,
