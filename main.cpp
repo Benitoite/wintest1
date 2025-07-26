@@ -1,8 +1,8 @@
 // Compile with: g++ main.cpp -o gtk_native_window.exe `pkg-config --cflags --libs gtk+-3.0` -mwindows -lole32 -luxtheme -ldwmapi
-
 #include <windows.h>
 #include <dwmapi.h>
 #include <gtk/gtk.h>
+#include <gdk/gdkwin32.h>  // <-- This is the key missing header
 #include <uxtheme.h>
 #include <string>
 
