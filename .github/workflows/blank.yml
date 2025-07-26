@@ -1,0 +1,43 @@
+name: Build Windows GTK App
+
+on:
+  push:
+    paths:
+      - '**.cpp'
+      - '.github/workflows/**'
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: >-
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-gtk3
+            mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-dwmapi
+
+      - name: Build executable
+        run: |
+          g++ main_dark_mode.cpp -o gtk_native_dark.exe \
+            `pkg-config --cflags --libs gtk+-3.0` \
+            -mwindows -lole32 -luxtheme -ldwmapi
+
+      - name: Upload executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: gtk_native_dark
+          path: gtk_native_dark.exe
