@@ -1,67 +1,64 @@
-
-#include <windows.h>
-#include <dwmapi.h>
 #include <gtk/gtk.h>
-#include <gdk/gdkwin32.h>
-#include <uxtheme.h>
-#include <string>
+#include <windows.h>
 
-// Function to apply the GTK theme based on Windows light/dark mode
-void apply_gtk_theme_based_on_windows_mode() {
+// Track current mode
+bool current_dark_mode = false;
+
+// Check Windows dark mode via registry
+bool isWindowsDarkTheme() {
     HKEY hKey;
     DWORD value = 1;
-    DWORD dataSize = sizeof(DWORD);
-
+    DWORD size = sizeof(DWORD);
     if (RegOpenKeyExW(HKEY_CURRENT_USER,
-                      L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
-                      0, KEY_READ, &hKey) == ERROR_SUCCESS) {
-        RegQueryValueExW(hKey, L"AppsUseLightTheme", nullptr, nullptr, reinterpret_cast<LPBYTE>(&value), &dataSize);
+        L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+        0, KEY_READ, &hKey) == ERROR_SUCCESS)
+    {
+        RegQueryValueExW(hKey, L"AppsUseLightTheme", NULL, NULL, (LPBYTE)&value, &size);
         RegCloseKey(hKey);
     }
-
-    if (value == 0) {
-        GtkSettings *settings = gtk_settings_get_default();
-        g_object_set(settings, "gtk-theme-name", "Adwaita-dark", NULL);
-    } else {
-        GtkSettings *settings = gtk_settings_get_default();
-        g_object_set(settings, "gtk-theme-name", "Adwaita", NULL);
-    }
+    return value == 0; // 0 = dark mode
 }
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
-    const wchar_t CLASS_NAME[] = L"MyNativeWindowClass";
+// Timer callback: re-check registry and apply theme if needed
+gboolean poll_dark_mode(gpointer data) {
+    bool new_dark_mode = isWindowsDarkTheme();
+    if (new_dark_mode != current_dark_mode) {
+        current_dark_mode = new_dark_mode;
 
-    WNDCLASSW wc = {};
-    wc.lpfnWndProc = DefWindowProcW;
-    wc.hInstance = hInstance;
-    wc.lpszClassName = CLASS_NAME;
+        const char* theme = new_dark_mode ? "Adwaita-dark" : "Adwaita";
+        GtkSettings* settings = gtk_settings_get_default();
+        g_object_set(settings, "gtk-theme-name", theme, NULL);
 
-    RegisterClassW(&wc);
+        gtk_widget_queue_draw(GTK_WIDGET(data));
+        g_print("Switched to %s mode\n", theme);
+    }
 
-    HWND hwnd = CreateWindowExW(
-        0,
-        CLASS_NAME,
-        L"My GTK App",
-        WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT, 800, 600,
-        nullptr, nullptr, hInstance, nullptr
-    );
+    return G_SOURCE_CONTINUE;
+}
 
-    gtk_init(nullptr, nullptr);
-    apply_gtk_theme_based_on_windows_mode();
+int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    int argc = 0;
+    char** argv = NULL;
+    gtk_init(&argc, &argv);
 
-    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-    gtk_window_set_title(GTK_WINDOW(window), "GTK in Native Window");
-    gtk_widget_set_size_request(window, 800, 600);
+    // Create main window
+    GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_default_size(GTK_WINDOW(window), 400, 300);
+    gtk_window_set_title(GTK_WINDOW(window), "GTK Dark Mode Polling");
+
+    // Initial theme
+    current_dark_mode = isWindowsDarkTheme();
+    const char* theme = current_dark_mode ? "Adwaita-dark" : "Adwaita";
+    GtkSettings* settings = gtk_settings_get_default();
+    g_object_set(settings, "gtk-theme-name", theme, NULL);
+
+    // Poll every 3 seconds
+    g_timeout_add_seconds(3, poll_dark_mode, window);
+
+    // Close event
     g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
 
-    gtk_widget_realize(window);
-    HWND gtkHWND = (HWND)gdk_win32_window_get_handle(gtk_widget_get_window(window));
-    SetParent(gtkHWND, hwnd);
-
-    ShowWindow(hwnd, nCmdShow);
     gtk_widget_show_all(window);
     gtk_main();
-
     return 0;
 }
