@@ -1,4 +1,4 @@
-name: Build GTK Native Bundle (64-bit, JPEG + FriBidi)
+name: Build GTK Native Bundle (GTK+GDK+JPEG+FriBidi, 64-bit)
 
 on:
   push:
@@ -15,7 +15,7 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Install MSYS2 with GTK3, JPEG, and FriBidi
+      - name: Install MSYS2 with GTK3, GDK, JPEG, and FriBidi
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
@@ -34,20 +34,20 @@ jobs:
             `pkg-config --cflags --libs gtk+-3.0 fribidi libjpeg` \
             -mwindows
 
-      - name: Create portable bundle
+      - name: Bundle GTK/GDK and dependencies
         shell: msys2 {0}
         run: |
           mkdir -p bundle
           cp gtk_native_window.exe bundle/
 
-          # Use ldd to discover runtime dependencies from /mingw64 only
-          ldd gtk_native_window.exe | grep '/mingw64/bin/' | awk '{print $3}' | xargs -I{} cp -u {} bundle/
+          # Automatically find and copy all runtime DLLs from mingw64
+          ldd gtk_native_window.exe | grep '/mingw64/bin/' | awk '{print $3}' | xargs -I{} cp -u "{}" bundle/
 
-      - name: Zip the bundle
+      - name: Zip the portable bundle
         run: |
           powershell Compress-Archive -Path bundle\* -DestinationPath gtk_native_window_bundle.zip
 
-      - name: Upload ZIP Artifact
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: gtk-native-bundle-x64
