@@ -32,9 +32,7 @@ jobs:
 
       - name: Build executable
         run: |
-          g++ main.cpp -o gtk_native_dark.exe \
-            `pkg-config --cflags --libs gtk+-3.0` \
-            -mwindows -lole32 -luxtheme -ldwmapi
+         g++ main.cpp -o gtk_native_window.exe `pkg-config --cflags --libs gtk+-3.0` -mwindows
 
       - name: Upload executable
         uses: actions/upload-artifact@v4
