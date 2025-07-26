@@ -32,7 +32,7 @@ jobs:
 
       - name: Build executable
         run: |
-          g++ main_dark_mode.cpp -o gtk_native_dark.exe \
+          g++ main.cpp -o gtk_native_dark.exe \
             `pkg-config --cflags --libs gtk+-3.0` \
             -mwindows -lole32 -luxtheme -ldwmapi
 
