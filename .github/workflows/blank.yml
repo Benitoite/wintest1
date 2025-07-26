@@ -1,4 +1,4 @@
-name: Build Native GTK Window (Windows)
+name: Build GTK Native Bundle
 
 on:
   push:
@@ -8,32 +8,73 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-windows:
+  build:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install MSYS2
+      - name: Install MSYS2 and GTK3
         uses: msys2/setup-msys2@v2
         with:
+          msystem: MINGW64
           update: true
           install: >-
             mingw-w64-x86_64-toolchain
             mingw-w64-x86_64-gtk3
             mingw-w64-x86_64-pkg-config
-          msystem: MINGW64
+            mingw-w64-x86_64-gtk-update-icon-cache
 
-      - name: Build with g++
+      - name: Compile GTK app
         shell: msys2 {0}
         run: |
-          g++ main.cpp -o gtk_native_window.exe \
+          g++ main_fixed_winmain.cpp -o gtk_native_window.exe \
             `pkg-config --cflags --libs gtk+-3.0` \
             -mwindows
 
-      - name: Upload Build Artifact
+      - name: Create runtime bundle
+        shell: msys2 {0}
+        run: |
+          mkdir -p bundle
+          cp gtk_native_window.exe bundle/
+
+          # Copy required DLLs from GTK and dependencies
+          for dll in \
+            libatk-1.0-0.dll \
+            libbrotlidec.dll \
+            libbrotlicommon.dll \
+            libcairo-2.dll \
+            libcairo-gobject-2.dll \
+            libepoxy-0.dll \
+            libexpat-1.dll \
+            libffi-8.dll \
+            libfontconfig-1.dll \
+            libfreetype-6.dll \
+            libgdk-3-0.dll \
+            libgdk_pixbuf-2.0-0.dll \
+            libgio-2.0-0.dll \
+            libglib-2.0-0.dll \
+            libgmodule-2.0-0.dll \
+            libgobject-2.0-0.dll \
+            libgtk-3-0.dll \
+            libharfbuzz-0.dll \
+            libiconv-2.dll \
+            libintl-8.dll \
+            libpango-1.0-0.dll \
+            libpangocairo-1.0-0.dll \
+            libpangoft2-1.0-0.dll \
+            libpixman-1-0.dll \
+            libpng16-16.dll \
+            libstdc++-6.dll \
+            libwinpthread-1.dll \
+            zlib1.dll; do
+
+              cp /mingw64/bin/$dll bundle/
+          done
+
+      - name: Upload bundle
         uses: actions/upload-artifact@v4
         with:
-          name: gtk-native-window-exe
-          path: gtk_native_window.exe
+          name: gtk-native-bundle
+          path: bundle/
