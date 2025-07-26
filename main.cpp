@@ -28,7 +28,7 @@ void apply_gtk_theme_based_on_windows_mode() {
     }
 }
 
-int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR pCmdLine, int nCmdShow) {
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int nCmdShow) {
     const wchar_t CLASS_NAME[] = L"MyNativeWindowClass";
 
     WNDCLASSW wc = {};
