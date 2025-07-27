@@ -1,60 +1,83 @@
-name: Build GTK3 App (64-bit)
+name: Windows Build (GTK App)
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
 
+    defaults:
+      run:
+        shell: msys2 {0}
+
     steps:
-    - name: Checkout repo
+    - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Set up MSYS2
+    - name: Setup MSYS2
       uses: msys2/setup-msys2@v2
       with:
         msystem: MINGW64
-        update: true
         install: >-
+          base-devel
           mingw-w64-x86_64-toolchain
           mingw-w64-x86_64-gtk3
-          mingw-w64-x86_64-libjpeg-turbo
+          mingw-w64-x86_64-glib2
+          mingw-w64-x86_64-pango
           mingw-w64-x86_64-fribidi
+          mingw-w64-x86_64-libjpeg-turbo
           mingw-w64-x86_64-adwaita-icon-theme
-          mingw-w64-x86_64-hicolor-icon-theme
-          mingw-w64-x86_64-librsvg
+        update: true
 
-    - name: Build the app
-      shell: msys2 {0}
+    - name: Compile application
       run: |
-        g++ -mwindows -std=c++17 -o app.exe main.cpp `pkg-config --cflags --libs gtk+-3.0`
-    
-    - name: Prepare bundle folder
-      shell: msys2 {0}
+        g++ -mwindows -std=c++17 -O2 -Wall -o app.exe main.cpp `pkg-config --cflags --libs gtk+-3.0`
+
+    - name: Create dist folder
       run: |
-        mkdir -p bundle/bin
-        cp app.exe bundle/bin/
+        mkdir -p dist/bin
+        cp app.exe dist/bin/
 
-        # Copy DLLs
-        cp /mingw64/bin/*.dll bundle/bin/
+    - name: Bundle GTK DLLs
+      run: |
+        for dll in \
+          libgtk-3-0.dll \
+          libgdk-3-0.dll \
+          libatk-1.0-0.dll \
+          libcairo-2.dll \
+          libgobject-2.0-0.dll \
+          libglib-2.0-0.dll \
+          libgio-2.0-0.dll \
+          libgmodule-2.0-0.dll \
+          libpango-1.0-0.dll \
+          libpangocairo-1.0-0.dll \
+          libfribidi-0.dll \
+          libjpeg-8.dll \
+          libintl-8.dll \
+          libiconv-2.dll \
+          zlib1.dll; do
+          cp /mingw64/bin/$dll dist/bin/ || echo "Missing: $dll"
+        done
 
-        # Copy GTK theme
-        mkdir -p bundle/share/themes/
-        cp -r /mingw64/share/themes/Adwaita bundle/share/themes/
-        cp -r /mingw64/share/icons/hicolor bundle/share/icons/
-        cp -r /mingw64/share/icons/Adwaita bundle/share/icons/
-        cp -r /mingw64/etc bundle/etc
+    - name: Bundle Adwaita theme (if available)
+      run: |
+        mkdir -p dist/share/themes
+        if [ -d /mingw64/share/themes/Adwaita ]; then
+          cp -r /mingw64/share/themes/Adwaita dist/share/themes/
+        else
+          echo "Warning: Adwaita theme not found, skipping."
+        fi
 
-        # Optional: Copy GTK config files if needed
-        cp -r /mingw64/share/gtk-3.0 bundle/share/
+    - name: Zip distribution
+      run: |
+        cd dist
+        7z a ../gtk-app-windows.zip *
 
-    - name: Upload bundle artifact
+    - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: gtk3-windows-bundle
-        path: bundle/
-        compression-level: 6
+        name: gtk-windows-app
+        path: gtk-app-windows.zip
