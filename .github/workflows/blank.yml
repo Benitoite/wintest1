@@ -1,19 +1,22 @@
-name: Build GTK App for Windows
+name: Build GTK App with Native Titlebar Dark Mode
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
 
     steps:
-    - name: Checkout
+    - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Setup MSYS2
+    - name: Set up MSYS2 and dependencies
       uses: msys2/setup-msys2@v2
       with:
         msystem: MINGW64
@@ -22,36 +25,35 @@ jobs:
           base-devel
           mingw-w64-x86_64-toolchain
           mingw-w64-x86_64-gtk3
+          mingw-w64-x86_64-glib2
+          mingw-w64-x86_64-cairo
+          mingw-w64-x86_64-pango
           mingw-w64-x86_64-fribidi
           mingw-w64-x86_64-libjpeg-turbo
-          mingw-w64-x86_64-pango
-          mingw-w64-x86_64-cairo
-          mingw-w64-x86_64-glib2
           mingw-w64-x86_64-harfbuzz
           mingw-w64-x86_64-fontconfig
           mingw-w64-x86_64-freetype
-          mingw-w64-x86_64-adwaita-icon-theme
+          mingw-w64-x86_64-libffi
+          mingw-w64-x86_64-libwinpthread
 
-    - name: Build the app
-      shell: msys2 {0}
+    - name: Compile application
       run: |
-        g++ main.cpp -std=c++17 -mwindows `pkg-config --cflags --libs gtk+-3.0` -o app.exe
+        g++ -std=c++17 -mwindows main.cpp -o app.exe `pkg-config --cflags --libs gtk+-3.0` -ldwmapi
 
-    - name: Gather DLLs
-      shell: msys2 {0}
+    - name: Bundle application and dependencies
       run: |
         mkdir -p bundle/bin
         cp app.exe bundle/bin/
         for dll in $(ldd app.exe | grep -o '/mingw64/bin/[^ ]*'); do
           cp "$dll" bundle/bin/
         done
-        # Copy GTK theme
-        mkdir -p bundle/share/themes
-        cp -r /mingw64/share/themes/Adwaita bundle/share/themes/ || echo "Theme missing"
-        cp -r /mingw64/share/icons/Adwaita bundle/share/icons/ || echo "Icons missing"
 
-    - name: Upload Bundle
+        # Copy GTK theme files if available
+        mkdir -p bundle/share/themes
+        cp -r /mingw64/share/themes/Adwaita bundle/share/themes/ || echo "No Adwaita theme"
+
+    - name: Upload bundle
       uses: actions/upload-artifact@v4
       with:
-        name: gtk-app-bundle
-        path: bundle
+        name: gtk-app-windows
+        path: bundle/
