@@ -67,8 +67,9 @@ jobs:
           echo 'gtk-theme-name=Adwaita' >> bundle/etc/gtk-3.0/settings.ini
           echo 'gtk-application-prefer-dark-theme=1' >> bundle/etc/gtk-3.0/settings.ini
 
-      - name: Upload bundle artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: gtk-bundle
-          path: bundle/
+          - name: Upload bundle artifact
+            uses: actions/upload-artifact@v4
+            with:
+              name: gtk-bundle
+              path: bundle/
+              compression-level: 6
