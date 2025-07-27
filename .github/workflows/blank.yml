@@ -1,7 +1,9 @@
-name: Build GTK App on Windows
+name: Build GTK App for Windows
 
 on:
   push:
+    branches: [ main ]
+  pull_request:
     branches: [ main ]
   workflow_dispatch:
 
@@ -9,85 +11,79 @@ jobs:
   build:
     runs-on: windows-latest
 
+    defaults:
+      run:
+        shell: msys2 {0}
+
     steps:
-    - name: Checkout
+    - name: Checkout code
       uses: actions/checkout@v4
 
     - name: Set up MSYS2
       uses: msys2/setup-msys2@v2
       with:
-        msystem: MINGW64
         update: true
         install: >-
           mingw-w64-x86_64-toolchain
           mingw-w64-x86_64-gtk3
           mingw-w64-x86_64-fribidi
           mingw-w64-x86_64-libjpeg-turbo
-          mingw-w64-x86_64-pkgconf
-          mingw-w64-x86_64-make
-          mingw-w64-x86_64-gcc
-          mingw-w64-x86_64-libepoxy
-          mingw-w64-x86_64-fontconfig
-          mingw-w64-x86_64-freetype
-          mingw-w64-x86_64-zlib
-          mingw-w64-x86_64-libpng
-          mingw-w64-x86_64-pcre2
+          mingw-w64-x86_64-pkg-config
 
     - name: Build app
-      shell: msys2 {0}
       run: |
-        g++ -std=c++17 -mwindows main.cpp -o build/gtk-app.exe \
+        mkdir -p build
+        g++ -std=c++17 -mwindows main.cpp -o build/app.exe \
         `pkg-config --cflags --libs gtk+-3.0` \
         -lfribidi -ljpeg
 
     - name: Copy EXE to dist folder
       run: |
         mkdir -p dist/bin
-        cp build/gtk-app.exe dist/bin/
+        cp build/app.exe dist/bin/
 
     - name: Bundle GTK DLLs
       run: |
-        for dll in ^
-          libgtk-3-0.dll ^
-          libgdk-3-0.dll ^
-          libgdk_pixbuf-2.0-0.dll ^
-          libcairo-2.dll ^
-          libcairo-gobject-2.dll ^
-          libgobject-2.0-0.dll ^
-          libglib-2.0-0.dll ^
-          libgio-2.0-0.dll ^
-          libgmodule-2.0-0.dll ^
-          libatk-1.0-0.dll ^
-          libharfbuzz-0.dll ^
-          libpango-1.0-0.dll ^
-          libpangocairo-1.0-0.dll ^
-          libfribidi-0.dll ^
-          libjpeg-8.dll ^
-          libepoxy-0.dll ^
-          libfontconfig-1.dll ^
-          libfreetype-6.dll ^
-          libpcre2-8-0.dll ^
-          libbrotlidec.dll ^
-          libgraphite2.dll ^
-          libpng16-16.dll ^
-          libintl-8.dll ^
-          libiconv-2.dll ^
-          zlib1.dll; do (
-            cp /mingw64/bin/$dll dist/bin/ || echo "Missing: $dll"
-          )
+        for dll in \
+          libgtk-3-0.dll \
+          libgdk-3-0.dll \
+          libgdk_pixbuf-2.0-0.dll \
+          libcairo-2.dll \
+          libcairo-gobject-2.dll \
+          libgobject-2.0-0.dll \
+          libglib-2.0-0.dll \
+          libgio-2.0-0.dll \
+          libgmodule-2.0-0.dll \
+          libatk-1.0-0.dll \
+          libharfbuzz-0.dll \
+          libpango-1.0-0.dll \
+          libpangocairo-1.0-0.dll \
+          libfribidi-0.dll \
+          libjpeg-8.dll \
+          libepoxy-0.dll \
+          libfontconfig-1.dll \
+          libfreetype-6.dll \
+          libpcre2-8-0.dll \
+          libbrotlidec.dll \
+          libgraphite2.dll \
+          libpng16-16.dll \
+          libintl-8.dll \
+          libiconv-2.dll \
+          zlib1.dll; do
+          cp /mingw64/bin/$dll dist/bin/ || echo "Missing: $dll"
         done
 
     - name: Dump DLL dependencies
       run: |
         echo "Dependencies of the app binary:"
-        ldd dist/bin/gtk-app.exe || true
+        ldd dist/bin/app.exe || true
 
-    - name: Zip distribution
+    - name: Package build
       shell: powershell
       run: Compress-Archive -Path dist\* -DestinationPath gtk-app-windows.zip
 
-    - name: Upload bundle artifact
+    - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: gtk-bundle
+        name: gtk-app
         path: gtk-app-windows.zip
