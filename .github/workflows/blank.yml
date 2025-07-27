@@ -80,7 +80,7 @@ jobs:
     - name: Dump DLL dependencies
       run: |
         echo "Dependencies of the app binary:"
-        ldd dist/bin/gtk-app.exe || true
+        ldd dist/bin/app.exe || true
 
     - name: Bundle Adwaita theme (if available)
       run: |
