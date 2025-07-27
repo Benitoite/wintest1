@@ -4,7 +4,9 @@
 #include <thread>
 #include <chrono>
 #include <string>
-
+#ifdef _WIN32
+#include <gdk/gdkwin32.h>
+#endif
 #pragma comment(lib, "dwmapi.lib")
 
 bool is_dark_mode_enabled() {
