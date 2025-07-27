@@ -3,8 +3,9 @@
 #include <cstdlib>
 
 bool current_dark_mode = false;
+GtkWidget* window = nullptr;
 
-// Detect if Windows is in dark mode for apps
+// Check Windows dark mode setting
 bool isWindowsDarkTheme() {
     HKEY hKey;
     DWORD value = 1;
@@ -19,34 +20,40 @@ bool isWindowsDarkTheme() {
     return value == 0;
 }
 
-// Force a GTK theme reload for all widgets
-void force_theme_reload(GtkWidget* widget) {
-    GtkStyleContext* context = gtk_widget_get_style_context(widget);
-    gtk_style_context_invalidate(context);
-    gtk_widget_queue_draw(widget);
-
-    if (GTK_IS_CONTAINER(widget)) {
-        gtk_container_foreach(GTK_CONTAINER(widget),
-            (GtkCallback)force_theme_reload,
-            NULL);
+// Build the window with current theme
+void build_main_window() {
+    if (window) {
+        gtk_widget_destroy(window);
     }
+
+    window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_default_size(GTK_WINDOW(window), 400, 300);
+    gtk_window_set_title(GTK_WINDOW(window), "GTK Theme Switch");
+
+    GtkWidget* textview = gtk_text_view_new();
+    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(textview), GTK_WRAP_WORD_CHAR);
+    gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(textview)),
+        "This window restarts itself when you toggle light/dark mode in Windows.",
+        -1);
+
+    gtk_container_add(GTK_CONTAINER(window), textview);
+    g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
+    gtk_widget_show_all(window);
 }
 
-// Poll and apply dark mode change
+// Poll for dark mode changes and rebuild window if needed
 gboolean poll_dark_mode(gpointer data) {
     bool new_dark_mode = isWindowsDarkTheme();
     if (new_dark_mode != current_dark_mode) {
         current_dark_mode = new_dark_mode;
-        const char* theme = new_dark_mode ? "Adwaita-dark" : "Adwaita";
-
+        const char* theme = current_dark_mode ? "Adwaita-dark" : "Adwaita";
         g_setenv("GTK_THEME", theme, TRUE);
+
         GtkSettings* settings = gtk_settings_get_default();
         g_object_set(settings, "gtk-theme-name", theme, NULL);
+        g_print("Switching to %s mode...\n", theme);
 
-        GtkWidget* window = GTK_WIDGET(data);
-        force_theme_reload(window);
-        gtk_widget_queue_draw(window);
-        g_print("Switched to %s mode\n", theme);
+        build_main_window();  // Rebuild window to reflect new theme
     }
     return G_SOURCE_CONTINUE;
 }
@@ -61,28 +68,11 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 
     gtk_init(&argc, &argv);
 
-    GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-    gtk_window_set_default_size(GTK_WINDOW(window), 400, 300);
-    gtk_window_set_title(GTK_WINDOW(window), "GTK Dark Mode Test");
-
     GtkSettings* settings = gtk_settings_get_default();
     g_object_set(settings, "gtk-theme-name", theme, NULL);
 
-    // Add a widget that will visibly reflect the theme
-    GtkWidget* textview = gtk_text_view_new();
-    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(textview), GTK_WRAP_WORD_CHAR);
-    gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(textview)),
-        "This widget should visibly change when switching light/dark mode in Windows.",
-        -1);
-
-    gtk_container_add(GTK_CONTAINER(window), textview);
-
-    g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
-    gtk_widget_show_all(window);
-
-    // Periodically check for theme changes
-    g_timeout_add_seconds(3, poll_dark_mode, window);
-
+    build_main_window();
+    g_timeout_add_seconds(3, poll_dark_mode, NULL);
     gtk_main();
     return 0;
 }
