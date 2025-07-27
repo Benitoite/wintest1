@@ -1,4 +1,4 @@
-name: Build GTK Windows App
+name: Build GTK3 App (64-bit)
 
 on:
   push:
@@ -11,65 +11,50 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: Checkout repo
+      uses: actions/checkout@v4
 
-      - name: Set up MSYS2
-        uses: msys2/setup-msys2@v2
-        with:
-          update: true
-          install: >-
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-pkg-config
-            mingw-w64-x86_64-gtk3
-            mingw-w64-x86_64-fribidi
-            mingw-w64-x86_64-libjpeg-turbo
-            mingw-w64-x86_64-glib2
-            mingw-w64-x86_64-adwaita-icon-theme
-            mingw-w64-x86_64-hicolor-icon-theme
-            mingw-w64-x86_64-librsvg
-          msystem: MINGW64
+    - name: Set up MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-toolchain
+          mingw-w64-x86_64-gtk3
+          mingw-w64-x86_64-libjpeg-turbo
+          mingw-w64-x86_64-fribidi
+          mingw-w64-x86_64-adwaita-icon-theme
+          mingw-w64-x86_64-hicolor-icon-theme
+          mingw-w64-x86_64-librsvg
 
-      - name: Build executable
-        shell: msys2 {0}
-        run: |
-          g++ -std=c++17 -mwindows -Wall -O2 main.cpp -o app.exe \
-            `pkg-config --cflags --libs gtk+-3.0` \
-            -ldwmapi
+    - name: Build the app
+      shell: msys2 {0}
+      run: |
+        g++ -mwindows -std=c++17 -o app.exe main.cpp `pkg-config --cflags --libs gtk+-3.0`
+    
+    - name: Prepare bundle folder
+      shell: msys2 {0}
+      run: |
+        mkdir -p bundle/bin
+        cp app.exe bundle/bin/
 
-      - name: Create portable bundle
-        shell: msys2 {0}
-        run: |
-          mkdir -p bundle/bin
-          mkdir -p bundle/share/icons
-          mkdir -p bundle/share/themes/Adwaita/gtk-3.0/
-          mkdir -p bundle/etc/gtk-3.0/
+        # Copy DLLs
+        cp /mingw64/bin/*.dll bundle/bin/
 
-          cp app.exe bundle/
+        # Copy GTK theme
+        mkdir -p bundle/share/themes/
+        cp -r /mingw64/share/themes/Adwaita bundle/share/themes/
+        cp -r /mingw64/share/icons/hicolor bundle/share/icons/
+        cp -r /mingw64/share/icons/Adwaita bundle/share/icons/
+        cp -r /mingw64/etc bundle/etc
 
-          # Copy required DLLs
-          cp /mingw64/bin/*.dll bundle/bin/
+        # Optional: Copy GTK config files if needed
+        cp -r /mingw64/share/gtk-3.0 bundle/share/
 
-          # Copy Adwaita theme files
-          cp /mingw64/share/icons/Adwaita/icon-theme.cache bundle/share/icons/Adwaita/ || true
-          cp -r /mingw64/share/icons/Adwaita bundle/share/icons/
-
-          # Copy Adwaita GTK theme CSS from known fallback locations
-          cp /mingw64/share/themes/Adwaita/gtk-3.0/gtk.css bundle/share/themes/Adwaita/gtk-3.0/ || true
-          cp /mingw64/share/themes/Adwaita/gtk-3.0/gtk-dark.css bundle/share/themes/Adwaita/gtk-3.0/ || true
-
-          # Fallback: Try to pull from "Default" or "MS-Windows" if Adwaita missing
-          cp /mingw64/share/themes/Default/gtk-3.0/* bundle/share/themes/Adwaita/gtk-3.0/ || true
-          cp /mingw64/share/themes/MS-Windows/gtk-3.0/* bundle/share/themes/Adwaita/gtk-3.0/ || true
-
-          # Write settings.ini
-          echo '[Settings]' > bundle/etc/gtk-3.0/settings.ini
-          echo 'gtk-theme-name=Adwaita' >> bundle/etc/gtk-3.0/settings.ini
-          echo 'gtk-application-prefer-dark-theme=1' >> bundle/etc/gtk-3.0/settings.ini
-
-      - name: Upload bundle artifact
-        uses: actions/upload-artifact@v4
-        with:
-         name: gtk-bundle
-         path: bundle/
-         compression-level: 6
+    - name: Upload bundle artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: gtk3-windows-bundle
+        path: bundle/
+        compression-level: 6
