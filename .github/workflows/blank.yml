@@ -27,11 +27,10 @@ jobs:
           mingw-w64-x86_64-gtk3
           mingw-w64-x86_64-fribidi
           mingw-w64-x86_64-libjpeg-turbo
-          mingw-w64-x86_64-libffi
           mingw-w64-x86_64-glib2
           mingw-w64-x86_64-cairo
           mingw-w64-x86_64-pango
-
+          
     - name: Build the App
       run: |
         g++ -std=c++17 -mwindows main.cpp -o app.exe `pkg-config --cflags --libs gtk+-3.0`
