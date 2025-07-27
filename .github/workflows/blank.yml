@@ -1,45 +1,44 @@
-name: Windows Build (GTK App)
+name: Build GTK App on Windows
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
 
-    defaults:
-      run:
-        shell: msys2 {0}
-
     steps:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Setup MSYS2
+    - name: Set up MSYS2
       uses: msys2/setup-msys2@v2
       with:
         msystem: MINGW64
+        update: true
         install: >-
-          base-devel
           mingw-w64-x86_64-toolchain
           mingw-w64-x86_64-gtk3
-          mingw-w64-x86_64-glib2
-          mingw-w64-x86_64-pango
           mingw-w64-x86_64-fribidi
           mingw-w64-x86_64-libjpeg-turbo
-          mingw-w64-x86_64-adwaita-icon-theme
-        update: true
+          mingw-w64-x86_64-pkgconf
+          mingw-w64-x86_64-make
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-libepoxy
+          mingw-w64-x86_64-fontconfig
+          mingw-w64-x86_64-freetype
+          mingw-w64-x86_64-zlib
+          mingw-w64-x86_64-libpng
+          mingw-w64-x86_64-pcre2
 
-    - name: Compile application
+    - name: Build app
+      shell: msys2 {0}
       run: |
-        g++ -mwindows -std=c++17 -O2 -Wall -o app.exe main.cpp `pkg-config --cflags --libs gtk+-3.0`
-
-    - name: Create dist folder
-      run: |
-        mkdir -p dist/bin
-        cp app.exe dist/bin/
+        g++ -std=c++17 -mwindows main.cpp -o build/gtk-app.exe \
+        `pkg-config --cflags --libs gtk+-3.0` \
+        -lfribidi -ljpeg
 
     - name: Copy EXE to dist folder
       run: |
@@ -48,55 +47,47 @@ jobs:
 
     - name: Bundle GTK DLLs
       run: |
-        for dll in \
-          libgtk-3-0.dll \
-          libgdk-3-0.dll \
-          libgdk_pixbuf-2.0-0.dll \
-          libcairo-2.dll \
-          libcairo-gobject-2.dll \
-          libgobject-2.0-0.dll \
-          libglib-2.0-0.dll \
-          libgio-2.0-0.dll \
-          libgmodule-2.0-0.dll \
-          libatk-1.0-0.dll \
-          libharfbuzz-0.dll \
-          libpango-1.0-0.dll \
-          libpangocairo-1.0-0.dll \
-          libfribidi-0.dll \
-          libjpeg-8.dll \
-          libepoxy-0.dll \
-          libfontconfig-1.dll \
-          libfreetype-6.dll \
-          libpcre2-8-0.dll \
-          libbrotlidec.dll \
-          libgraphite2.dll \
-          libpng16-16.dll \
-          libintl-8.dll \
-          libiconv-2.dll \
-          zlib1.dll; do
-          cp /mingw64/bin/$dll dist/bin/ || echo "Missing: $dll"
+        for dll in ^
+          libgtk-3-0.dll ^
+          libgdk-3-0.dll ^
+          libgdk_pixbuf-2.0-0.dll ^
+          libcairo-2.dll ^
+          libcairo-gobject-2.dll ^
+          libgobject-2.0-0.dll ^
+          libglib-2.0-0.dll ^
+          libgio-2.0-0.dll ^
+          libgmodule-2.0-0.dll ^
+          libatk-1.0-0.dll ^
+          libharfbuzz-0.dll ^
+          libpango-1.0-0.dll ^
+          libpangocairo-1.0-0.dll ^
+          libfribidi-0.dll ^
+          libjpeg-8.dll ^
+          libepoxy-0.dll ^
+          libfontconfig-1.dll ^
+          libfreetype-6.dll ^
+          libpcre2-8-0.dll ^
+          libbrotlidec.dll ^
+          libgraphite2.dll ^
+          libpng16-16.dll ^
+          libintl-8.dll ^
+          libiconv-2.dll ^
+          zlib1.dll; do (
+            cp /mingw64/bin/$dll dist/bin/ || echo "Missing: $dll"
+          )
         done
 
     - name: Dump DLL dependencies
       run: |
         echo "Dependencies of the app binary:"
-        ldd dist/bin/app.exe || true
+        ldd dist/bin/gtk-app.exe || true
 
-    - name: Bundle Adwaita theme (if available)
-      run: |
-        mkdir -p dist/share/themes
-        if [ -d /mingw64/share/themes/Adwaita ]; then
-          cp -r /mingw64/share/themes/Adwaita dist/share/themes/
-        else
-          echo "Warning: Adwaita theme not found, skipping."
-        fi
-
-    - name: Zip distribution (PowerShell)
+    - name: Zip distribution
       shell: powershell
       run: Compress-Archive -Path dist\* -DestinationPath gtk-app-windows.zip
 
-    - name: Upload artifact
+    - name: Upload bundle artifact
       uses: actions/upload-artifact@v4
       with:
-        name: gtk-windows-app
+        name: gtk-bundle
         path: gtk-app-windows.zip
