@@ -1,4 +1,4 @@
-name: Build GTK App on Windows (64-bit)
+name: Build GTK App
 
 on:
   push:
@@ -9,88 +9,47 @@ jobs:
   build:
     runs-on: windows-latest
 
-    defaults:
-      run:
-        shell: msys2 {0}
-
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Setup MSYS2 (64‑bit only)
-      uses: msys2/setup-msys2@v2
-    with:
-      msystem: MINGW64
-      install: >-
-        mingw-w64-x86_64-toolchain
-        mingw-w64-x86_64-gtk3
-        mingw-w64-x86_64-glib2
-        mingw-w64-x86_64-pango
-        mingw-w64-x86_64-fribidi
-        mingw-w64-x86_64-libjpeg-turbo
-        mingw-w64-x86_64-libffi
-        mingw-w64-x86_64-libiconv
-        mingw-w64-x86_64-libwinpthread
-        mingw-w64-x86_64-zlib
-        mingw-w64-x86_64-libpng
-        mingw-w64-x86_64-libepoxy
-        mingw-w64-x86_64-freetype
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-gtk3
+            mingw-w64-x86_64-glib2
+            mingw-w64-x86_64-pango
+            mingw-w64-x86_64-fribidi
+            mingw-w64-x86_64-libjpeg-turbo
+            mingw-w64-x86_64-libffi
+            mingw-w64-x86_64-libiconv
+            mingw-w64-x86_64-libwinpthread
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-libpng
+            mingw-w64-x86_64-libepoxy
+            mingw-w64-x86_64-freetype
 
+      - name: Build
+        shell: msys2 {0}
+        run: |
+          g++ -std=c++17 -mwindows -Wall -O2 main.cpp -o app.exe \
+            `pkg-config --cflags --libs gtk+-3.0`
 
-    - name: Build app (64‑bit)
-      run: |
-        mkdir -p build
-        g++ -std=c++17 -mwindows -O2 main.cpp -o build/app.exe \
-          `pkg-config --cflags --libs gtk+-3.0` \
-          -lfribidi -ljpeg
+      - name: Copy Dependencies
+        shell: msys2 {0}
+        run: |
+          mkdir -p dist/bin
+          cp app.exe dist/bin/
+          for dll in $(ldd app.exe | grep -o '/.*\.dll'); do
+            cp "$dll" dist/bin/
+          done
 
-    - name: Clean and bundle binaries
-      run: |
-        rm -rf dist
-        mkdir -p dist/bin
-        cp build/app.exe dist/bin/
-        for dll in \
-          libatk-1.0-0.dll \
-          libcairo-2.dll \
-          libcairo-gobject-2.dll \
-          libepoxy-0.dll \
-          libffi-8.dll \
-          libfontconfig-1.dll \
-          libfreetype-6.dll \
-          libgdk-3-0.dll \
-          libgdk_pixbuf-2.0-0.dll \
-          libgio-2.0-0.dll \
-          libglib-2.0-0.dll \
-          libgmodule-2.0-0.dll \
-          libgobject-2.0-0.dll \
-          libgtk-3-0.dll \
-          libharfbuzz-0.dll \
-          libintl-8.dll \
-          libpango-1.0-0.dll \
-          libpangocairo-1.0-0.dll \
-          libpangoft2-1.0-0.dll \
-          libpixman-1-0.dll \
-          libpng16-16.dll \
-          libwinpthread-1.dll \
-          zlib1.dll \
-          libfribidi-0.dll \
-          libjpeg-8.dll; do
-            cp "/mingw64/bin/$dll" dist/bin/ || echo "⚠️ Missing 64‑bit $dll"
-        done
-
-    - name: Verify bundle content
-      run: |
-        echo "Files in dist/bin:"
-        ls -1 dist/bin/
-        echo "DLL dependencies of app.exe:"
-        ldd dist/bin/app.exe || true
-
-    - name: Package bundle
-      shell: powershell
-      run: Compress-Archive -Path dist\* -DestinationPath gtk-app-windows.zip
-
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: gtk-app-windows
-        path: gtk-app-windows.zip
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gtk-app-bundle
+          path: dist/bin/
