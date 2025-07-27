@@ -1,75 +1,74 @@
-name: Build GTK App with Theme Support
+name: Build GTK Windows App
 
 on:
   push:
-    paths:
-      - '**.cpp'
-      - '.github/workflows/**'
-  workflow_dispatch:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-    - name: Checkout source
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Install MSYS2 with GTK3, themes, JPEG, FriBidi
-      uses: msys2/setup-msys2@v2
-      with:
-        msystem: MINGW64
-        update: true
-        install: >-
-          mingw-w64-x86_64-gcc
-          mingw-w64-x86_64-gtk3
-          mingw-w64-x86_64-libjpeg-turbo
-          mingw-w64-x86_64-fribidi
-          mingw-w64-x86_64-adwaita-icon-theme
-          mingw-w64-x86_64-hicolor-icon-theme
-          mingw-w64-x86_64-gtk3-theme-adwaita
-          mingw-w64-x86_64-librsvg
-          mingw-w64-x86_64-glib2
-          mingw-w64-x86_64-pkg-config
+      - name: Set up MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-gtk3
+            mingw-w64-x86_64-fribidi
+            mingw-w64-x86_64-libjpeg-turbo
+            mingw-w64-x86_64-glib2
+            mingw-w64-x86_64-adwaita-icon-theme
+            mingw-w64-x86_64-hicolor-icon-theme
+            mingw-w64-x86_64-librsvg
+          msystem: MINGW64
 
-    - name: Build executable
-      shell: msys2 {0}
-      run: |
-        g++ main.cpp -o gtk_native_window.exe \
-          `pkg-config --cflags --libs gtk+-3.0 fribidi libjpeg` \
-          -mwindows
+      - name: Build executable
+        shell: msys2 {0}
+        run: |
+          g++ -std=c++17 -mwindows -Wall -O2 main.cpp -o app.exe \
+            `pkg-config --cflags --libs gtk+-3.0` \
+            -ldwmapi
 
-    - name: Create portable bundle
-      shell: msys2 {0}
-      run: |
-        mkdir -p bundle/share/themes
-        mkdir -p bundle/share/icons
+      - name: Create portable bundle
+        shell: msys2 {0}
+        run: |
+          mkdir -p bundle/bin
+          mkdir -p bundle/share/icons
+          mkdir -p bundle/share/themes/Adwaita/gtk-3.0/
+          mkdir -p bundle/etc/gtk-3.0/
 
-        cp gtk_native_window.exe bundle/
+          cp app.exe bundle/
 
-        # Copy runtime DLLs
-        ldd gtk_native_window.exe | grep '/mingw64/bin/' | awk '{print $3}' | xargs -I{} cp -u {} bundle/
+          # Copy required DLLs
+          cp /mingw64/bin/*.dll bundle/bin/
 
-        # Copy GTK theme files
-        cp -r /mingw64/share/themes/Adwaita bundle/share/themes/
-        cp -r /mingw64/share/themes/Adwaita-dark bundle/share/themes/
+          # Copy Adwaita theme files
+          cp /mingw64/share/icons/Adwaita/icon-theme.cache bundle/share/icons/Adwaita/ || true
+          cp -r /mingw64/share/icons/Adwaita bundle/share/icons/
 
-        # Copy icon themes
-        cp -r /mingw64/share/icons/Adwaita bundle/share/icons/
-        cp -r /mingw64/share/icons/hicolor bundle/share/icons/
+          # Copy Adwaita GTK theme CSS from known fallback locations
+          cp /mingw64/share/themes/Adwaita/gtk-3.0/gtk.css bundle/share/themes/Adwaita/gtk-3.0/ || true
+          cp /mingw64/share/themes/Adwaita/gtk-3.0/gtk-dark.css bundle/share/themes/Adwaita/gtk-3.0/ || true
 
-        # Optional: copy GTK's settings.ini to enable theme usage
-        mkdir -p bundle/etc/gtk-3.0
-        echo '[Settings]' > bundle/etc/gtk-3.0/settings.ini
-        echo 'gtk-theme-name=Adwaita' >> bundle/etc/gtk-3.0/settings.ini
-        echo 'gtk-application-prefer-dark-theme=1' >> bundle/etc/gtk-3.0/settings.ini
+          # Fallback: Try to pull from "Default" or "MS-Windows" if Adwaita missing
+          cp /mingw64/share/themes/Default/gtk-3.0/* bundle/share/themes/Adwaita/gtk-3.0/ || true
+          cp /mingw64/share/themes/MS-Windows/gtk-3.0/* bundle/share/themes/Adwaita/gtk-3.0/ || true
 
-    - name: Zip the bundle
-      run: |
-        powershell Compress-Archive -Path bundle\* -DestinationPath gtk_native_window_bundle.zip
+          # Write settings.ini
+          echo '[Settings]' > bundle/etc/gtk-3.0/settings.ini
+          echo 'gtk-theme-name=Adwaita' >> bundle/etc/gtk-3.0/settings.ini
+          echo 'gtk-application-prefer-dark-theme=1' >> bundle/etc/gtk-3.0/settings.ini
 
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: gtk-native-bundle-x64
-        path: gtk_native_window_bundle.zip
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: gtk-bundle
+          path: bundle/
