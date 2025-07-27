@@ -1,82 +1,77 @@
-name: Build GTK App for Windows
+name: Build GTK Windows App
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
 
+    defaults:
+      run:
+        shell: msys2 {0}
+
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+    - name: Checkout repo
+      uses: actions/checkout@v4
 
-      - name: Setup MSYS2
-        uses: msys2/setup-msys2@v2
-        with:
-          update: true
-          install: >-
-            mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-gtk3
-            mingw-w64-x86_64-fribidi
-            mingw-w64-x86_64-libjpeg-turbo
-            mingw-w64-x86_64-pkg-config
-            mingw-w64-x86_64-zlib
-            mingw-w64-x86_64-libiconv
-            mingw-w64-x86_64-libffi
-            mingw-w64-x86_64-libwinpthread
-            p7zip
+    - name: Set up MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-toolchain
+          mingw-w64-x86_64-gtk3
+          mingw-w64-x86_64-fribidi
+          mingw-w64-x86_64-libjpeg-turbo
+          mingw-w64-x86_64-pkg-config
+          mingw-w64-x86_64-meson
+          mingw-w64-x86_64-ninja
 
-      - name: Build app
-        shell: msys2 {0}
-        run: |
-          mkdir -p build
-          g++ -std=c++17 -mwindows main.cpp -o build/app.exe \
-            `pkg-config --cflags --libs gtk+-3.0` \
-            -lfribidi -ljpeg
+    - name: Compile app
+      run: |
+        g++ -mwindows -O2 -std=c++17 -o app.exe main.cpp `pkg-config --cflags --libs gtk+-3.0`
 
-      - name: Bundle GTK DLLs
-        shell: msys2 {0}
-        run: |
-          mkdir -p dist/bin
-          cp build/app.exe dist/bin/
-          cp /mingw64/bin/{ \
-            libgtk-3-0.dll \
-            libgdk-3-0.dll \
-            libatk-1.0-0.dll \
-            libcairo-2.dll \
-            libgobject-2.0-0.dll \
-            libglib-2.0-0.dll \
-            libintl-8.dll \
-            libiconv-2.dll \
-            zlib1.dll \
-            libjpeg-8.dll \
-            libfribidi-0.dll \
-            libffi-8.dll \
-            libwinpthread-1.dll \
-          } dist/bin/ || true
+    - name: Bundle DLLs
+      run: |
+        mkdir -p dist
+        cp app.exe dist/
 
-      - name: Copy theme assets
-        shell: msys2 {0}
-        run: |
-          mkdir -p dist/share/themes
-          cp -r /mingw64/share/themes/Adwaita dist/share/themes/ || true
+        cp /mingw64/bin/{\
+libatk-1.0-0.dll,\
+libcairo-2.dll,\
+libepoxy-0.dll,\
+libffi-8.dll,\
+libfontconfig-1.dll,\
+libfreetype-6.dll,\
+libgdk-3-0.dll,\
+libgdk_pixbuf-2.0-0.dll,\
+libgio-2.0-0.dll,\
+libglib-2.0-0.dll,\
+libgmodule-2.0-0.dll,\
+libgobject-2.0-0.dll,\
+libgtk-3-0.dll,\
+libharfbuzz-0.dll,\
+libintl-8.dll,\
+libpango-1.0-0.dll,\
+libpangocairo-1.0-0.dll,\
+libpangoft2-1.0-0.dll,\
+libpixman-1-0.dll,\
+libpng16-16.dll,\
+libwinpthread-1.dll,\
+zlib1.dll,\
+libfribidi-0.dll,\
+libjpeg-8.dll\
+} dist/ || echo "Some DLLs not found"
 
-      - name: Dump DLL dependencies
-        shell: msys2 {0}
-        run: |
-          echo "DLLs linked by app.exe:"
-          ldd dist/bin/app.exe || true
+    - name: List contents
+      run: ls -lh dist/
 
-      - name: Zip distribution
-        shell: powershell
-        run: Compress-Archive -Path dist\* -DestinationPath gtk-app-windows.zip
-
-      - name: Upload zip artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: gtk-app-windows
-          path: gtk-app-windows.zip
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: gtk-app-bundle
+        path: dist/
