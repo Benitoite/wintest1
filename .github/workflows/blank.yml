@@ -1,8 +1,8 @@
-name: Build GTK Windows App
+name: Build GTK App on Windows (64-bit Only)
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -14,10 +14,10 @@ jobs:
         shell: msys2 {0}
 
     steps:
-    - name: Checkout repo
+    - name: Checkout source
       uses: actions/checkout@v4
 
-    - name: Set up MSYS2
+    - name: Set up MSYS2 (64‑bit only)
       uses: msys2/setup-msys2@v2
       with:
         msystem: MINGW64
@@ -25,20 +25,34 @@ jobs:
         install: >-
           mingw-w64-x86_64-toolchain
           mingw-w64-x86_64-gtk3
+          mingw-w64-x86_64-glib2
+          mingw-w64-x86_64-pango
           mingw-w64-x86_64-fribidi
           mingw-w64-x86_64-libjpeg-turbo
-          mingw-w64-x86_64-pkg-config
-          mingw-w64-x86_64-meson
-          mingw-w64-x86_64-ninja
+          mingw-w64-x86_64-libffi
+          mingw-w64-x86_64-libiconv
+          mingw-w64-x86_64-libwinpthread
+          mingw-w64-x86_64-zlib
+          mingw-w64-x86_64-libpng
+          mingw-w64-x86_64-libepoxy
+          mingw-w64-x86_64-libfreetype
 
-    - name: Compile app
+    - name: Build app (64‑bit)
       run: |
-        g++ -mwindows -O2 -std=c++17 -o app.exe main.cpp `pkg-config --cflags --libs gtk+-3.0`
+        mkdir -p build
+        g++ -std=c++17 -mwindows -O2 main.cpp -o build/app.exe \
+          `pkg-config --cflags --libs gtk+-3.0` \
+          -lfribidi -ljpeg
 
-    - name: Bundle DLLs
+    - name: Clean previous bundle
       run: |
+        rm -rf dist
         mkdir -p dist
-        cp app.exe dist/
+
+    - name: Bundle app and DLLs
+      run: |
+        mkdir -p dist/bin
+        cp build/app.exe dist/bin/
 
         for dll in \
           libatk-1.0-0.dll \
@@ -66,14 +80,23 @@ jobs:
           zlib1.dll \
           libfribidi-0.dll \
           libjpeg-8.dll; do
-            cp "/mingw64/bin/$dll" dist/ || echo "Missing $dll"
+            cp "/mingw64/bin/$dll" dist/bin/ || echo "⚠️ Missing 64‑bit $dll"
         done
 
-    - name: List contents
-      run: ls -lh dist/
+    - name: Verify DLL list
+      run: ls -lh dist/bin/
+
+    - name: Dump and check dependencies
+      run: |
+        echo "Dependencies of build/app.exe:"
+        ldd dist/bin/app.exe || true
+
+    - name: Package bundle
+      shell: powershell
+      run: Compress-Archive -Path dist\* -DestinationPath gtk-app-windows.zip
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: gtk-app-bundle
-        path: dist/
+        name: gtk-app-windows
+        path: gtk-app-windows.zip
