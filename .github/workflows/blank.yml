@@ -1,57 +1,57 @@
-name: Build GTK3 App (64-bit)
+name: Build GTK App for Windows
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
 
-    defaults:
-      run:
-        shell: msys2 {0}
-
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@v4
 
-    - name: Install MSYS2
+    - name: Setup MSYS2
       uses: msys2/setup-msys2@v2
       with:
         msystem: MINGW64
-        install: >
+        update: true
+        install: >-
           base-devel
           mingw-w64-x86_64-toolchain
           mingw-w64-x86_64-gtk3
           mingw-w64-x86_64-fribidi
           mingw-w64-x86_64-libjpeg-turbo
-          mingw-w64-x86_64-glib2
-          mingw-w64-x86_64-cairo
           mingw-w64-x86_64-pango
-          
-    - name: Build the App
-      run: |
-        g++ -std=c++17 -mwindows main.cpp -o app.exe `pkg-config --cflags --libs gtk+-3.0`
+          mingw-w64-x86_64-cairo
+          mingw-w64-x86_64-glib2
+          mingw-w64-x86_64-harfbuzz
+          mingw-w64-x86_64-fontconfig
+          mingw-w64-x86_64-freetype
+          mingw-w64-x86_64-adwaita-icon-theme
 
-    - name: Bundle Executable and DLLs
+    - name: Build the app
+      shell: msys2 {0}
       run: |
-        mkdir -p dist/bin
-        cp app.exe dist/bin/
+        g++ main.cpp -std=c++17 -mwindows `pkg-config --cflags --libs gtk+-3.0` -o app.exe
 
-        for dll in /mingw64/bin/*.dll; do
-          name=$(basename "$dll")
-          if objdump -x app.exe | grep -iq "$name"; then
-            cp "$dll" dist/bin/
-          fi
+    - name: Gather DLLs
+      shell: msys2 {0}
+      run: |
+        mkdir -p bundle/bin
+        cp app.exe bundle/bin/
+        for dll in $(ldd app.exe | grep -o '/mingw64/bin/[^ ]*'); do
+          cp "$dll" bundle/bin/
         done
+        # Copy GTK theme
+        mkdir -p bundle/share/themes
+        cp -r /mingw64/share/themes/Adwaita bundle/share/themes/ || echo "Theme missing"
+        cp -r /mingw64/share/icons/Adwaita bundle/share/icons/ || echo "Icons missing"
 
-        cp -r /mingw64/share/themes dist/ || true
-        cp -r /mingw64/share/icons dist/ || true
-
-    - name: Upload Artifact
+    - name: Upload Bundle
       uses: actions/upload-artifact@v4
       with:
-        name: gtk3-app-bundle
-        path: dist/
+        name: gtk-app-bundle
+        path: bundle
