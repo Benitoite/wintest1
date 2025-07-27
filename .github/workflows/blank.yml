@@ -1,8 +1,8 @@
-name: Build GTK App on Windows (64-bit Only)
+name: Build GTK App on Windows (64-bit)
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -14,10 +14,10 @@ jobs:
         shell: msys2 {0}
 
     steps:
-    - name: Checkout source
+    - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Set up MSYS2 (64‑bit only)
+    - name: Setup MSYS2 (64‑bit only)
       uses: msys2/setup-msys2@v2
       with:
         msystem: MINGW64
@@ -35,7 +35,7 @@ jobs:
           mingw-w64-x86_64-zlib
           mingw-w64-x86_64-libpng
           mingw-w64-x86_64-libepoxy
-          mingw-w64-x86_64-libfreetype
+          mingw-w64-x86_64-freetype
 
     - name: Build app (64‑bit)
       run: |
@@ -44,16 +44,11 @@ jobs:
           `pkg-config --cflags --libs gtk+-3.0` \
           -lfribidi -ljpeg
 
-    - name: Clean previous bundle
+    - name: Clean and bundle binaries
       run: |
         rm -rf dist
-        mkdir -p dist
-
-    - name: Bundle app and DLLs
-      run: |
         mkdir -p dist/bin
         cp build/app.exe dist/bin/
-
         for dll in \
           libatk-1.0-0.dll \
           libcairo-2.dll \
@@ -83,12 +78,11 @@ jobs:
             cp "/mingw64/bin/$dll" dist/bin/ || echo "⚠️ Missing 64‑bit $dll"
         done
 
-    - name: Verify DLL list
-      run: ls -lh dist/bin/
-
-    - name: Dump and check dependencies
+    - name: Verify bundle content
       run: |
-        echo "Dependencies of build/app.exe:"
+        echo "Files in dist/bin:"
+        ls -1 dist/bin/
+        echo "DLL dependencies of app.exe:"
         ldd dist/bin/app.exe || true
 
     - name: Package bundle
