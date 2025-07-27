@@ -71,10 +71,9 @@ jobs:
           echo "Warning: Adwaita theme not found, skipping."
         fi
 
-    - name: Zip distribution
-      run: |
-        cd dist
-        7z a ../gtk-app-windows.zip *
+    - name: Zip distribution (PowerShell)
+      shell: powershell
+      run: Compress-Archive -Path dist\* -DestinationPath gtk-app-windows.zip
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
