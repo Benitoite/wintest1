@@ -1,55 +1,58 @@
-name: Build GTK App
+name: Build GTK3 App (64-bit)
 
 on:
   push:
     branches: [main]
-  workflow_dispatch:
+  pull_request:
+    branches: [main]
 
 jobs:
   build:
     runs-on: windows-latest
 
+    defaults:
+      run:
+        shell: msys2 {0}
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - name: Setup MSYS2
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          update: true
-          install: >-
-            mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-gtk3
-            mingw-w64-x86_64-glib2
-            mingw-w64-x86_64-pango
-            mingw-w64-x86_64-fribidi
-            mingw-w64-x86_64-libjpeg-turbo
-            mingw-w64-x86_64-libffi
-            mingw-w64-x86_64-libiconv
-            mingw-w64-x86_64-libwinpthread
-            mingw-w64-x86_64-zlib
-            mingw-w64-x86_64-libpng
-            mingw-w64-x86_64-libepoxy
-            mingw-w64-x86_64-freetype
+    - name: Install MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        install: >
+          base-devel
+          mingw-w64-x86_64-toolchain
+          mingw-w64-x86_64-gtk3
+          mingw-w64-x86_64-fribidi
+          mingw-w64-x86_64-libjpeg-turbo
+          mingw-w64-x86_64-libffi
+          mingw-w64-x86_64-glib2
+          mingw-w64-x86_64-cairo
+          mingw-w64-x86_64-pango
 
-      - name: Build
-        shell: msys2 {0}
-        run: |
-          g++ -std=c++17 -mwindows -Wall -O2 main.cpp -o app.exe \
-            `pkg-config --cflags --libs gtk+-3.0`
+    - name: Build the App
+      run: |
+        g++ -std=c++17 -mwindows main.cpp -o app.exe `pkg-config --cflags --libs gtk+-3.0`
 
-      - name: Copy Dependencies
-        shell: msys2 {0}
-        run: |
-          mkdir -p dist/bin
-          cp app.exe dist/bin/
-          for dll in $(ldd app.exe | grep -o '/.*\.dll'); do
+    - name: Bundle Executable and DLLs
+      run: |
+        mkdir -p dist/bin
+        cp app.exe dist/bin/
+
+        for dll in /mingw64/bin/*.dll; do
+          name=$(basename "$dll")
+          if objdump -x app.exe | grep -iq "$name"; then
             cp "$dll" dist/bin/
-          done
+          fi
+        done
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: gtk-app-bundle
-          path: dist/bin/
+        cp -r /mingw64/share/themes dist/ || true
+        cp -r /mingw64/share/icons dist/ || true
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: gtk3-app-bundle
+        path: dist/
