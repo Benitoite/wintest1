@@ -41,26 +41,46 @@ jobs:
         mkdir -p dist/bin
         cp app.exe dist/bin/
 
+    - name: Copy EXE to dist folder
+      run: |
+        mkdir -p dist/bin
+        cp build/gtk-app.exe dist/bin/
+
     - name: Bundle GTK DLLs
       run: |
         for dll in \
           libgtk-3-0.dll \
           libgdk-3-0.dll \
-          libatk-1.0-0.dll \
+          libgdk_pixbuf-2.0-0.dll \
           libcairo-2.dll \
+          libcairo-gobject-2.dll \
           libgobject-2.0-0.dll \
           libglib-2.0-0.dll \
           libgio-2.0-0.dll \
           libgmodule-2.0-0.dll \
+          libatk-1.0-0.dll \
+          libharfbuzz-0.dll \
           libpango-1.0-0.dll \
           libpangocairo-1.0-0.dll \
           libfribidi-0.dll \
           libjpeg-8.dll \
+          libepoxy-0.dll \
+          libfontconfig-1.dll \
+          libfreetype-6.dll \
+          libpcre2-8-0.dll \
+          libbrotlidec.dll \
+          libgraphite2.dll \
+          libpng16-16.dll \
           libintl-8.dll \
           libiconv-2.dll \
           zlib1.dll; do
           cp /mingw64/bin/$dll dist/bin/ || echo "Missing: $dll"
         done
+
+    - name: Dump DLL dependencies
+      run: |
+        echo "Dependencies of the app binary:"
+        ldd dist/bin/gtk-app.exe || true
 
     - name: Bundle Adwaita theme (if available)
       run: |
