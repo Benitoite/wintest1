@@ -1,4 +1,4 @@
-name: Build GTK App with Themed Bundle (64-bit, JPEG + FriBidi)
+name: Build GTK App with Theme Support
 
 on:
   push:
@@ -27,6 +27,9 @@ jobs:
           mingw-w64-x86_64-fribidi
           mingw-w64-x86_64-adwaita-icon-theme
           mingw-w64-x86_64-hicolor-icon-theme
+          mingw-w64-x86_64-gtk3-theme-adwaita
+          mingw-w64-x86_64-librsvg
+          mingw-w64-x86_64-glib2
           mingw-w64-x86_64-pkg-config
 
     - name: Build executable
@@ -36,7 +39,7 @@ jobs:
           `pkg-config --cflags --libs gtk+-3.0 fribidi libjpeg` \
           -mwindows
 
-    - name: Create portable bundle with themes
+    - name: Create portable bundle
       shell: msys2 {0}
       run: |
         mkdir -p bundle/share/themes
@@ -44,19 +47,22 @@ jobs:
 
         cp gtk_native_window.exe bundle/
 
-        # Copy runtime DLLs from mingw64
-        ldd gtk_native_window.exe \
-          | grep '/mingw64/bin/' \
-          | awk '{print $3}' \
-          | xargs -I{} cp -u {} bundle/
+        # Copy runtime DLLs
+        ldd gtk_native_window.exe | grep '/mingw64/bin/' | awk '{print $3}' | xargs -I{} cp -u {} bundle/
 
-        # Copy Gtk themes from MSYS2 share directory
+        # Copy GTK theme files
         cp -r /mingw64/share/themes/Adwaita bundle/share/themes/
         cp -r /mingw64/share/themes/Adwaita-dark bundle/share/themes/
 
         # Copy icon themes
         cp -r /mingw64/share/icons/Adwaita bundle/share/icons/
         cp -r /mingw64/share/icons/hicolor bundle/share/icons/
+
+        # Optional: copy GTK's settings.ini to enable theme usage
+        mkdir -p bundle/etc/gtk-3.0
+        echo '[Settings]' > bundle/etc/gtk-3.0/settings.ini
+        echo 'gtk-theme-name=Adwaita' >> bundle/etc/gtk-3.0/settings.ini
+        echo 'gtk-application-prefer-dark-theme=1' >> bundle/etc/gtk-3.0/settings.ini
 
     - name: Zip the bundle
       run: |
