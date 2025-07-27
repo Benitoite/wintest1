@@ -19,23 +19,23 @@ jobs:
 
     - name: Setup MSYS2 (64‑bit only)
       uses: msys2/setup-msys2@v2
-      with:
-        msystem: MINGW64
-        update: true
-        install: >-
-          mingw-w64-x86_64-toolchain
-          mingw-w64-x86_64-gtk3
-          mingw-w64-x86_64-glib2
-          mingw-w64-x86_64-pango
-          mingw-w64-x86_64-fribidi
-          mingw-w64-x86_64-libjpeg-turbo
-          mingw-w64-x86_64-libffi
-          mingw-w64-x86_64-libiconv
-          mingw-w64-x86_64-libwinpthread
-          mingw-w64-x86_64-zlib
-          mingw-w64-x86_64-libpng
-          mingw-w64-x86_64-libepoxy
-          mingw-w64-x86_64-freetype
+    with:
+      msystem: MINGW64
+      install: >-
+        mingw-w64-x86_64-toolchain
+        mingw-w64-x86_64-gtk3
+        mingw-w64-x86_64-glib2
+        mingw-w64-x86_64-pango
+        mingw-w64-x86_64-fribidi
+        mingw-w64-x86_64-libjpeg-turbo
+        mingw-w64-x86_64-libffi
+        mingw-w64-x86_64-libiconv
+        mingw-w64-x86_64-libwinpthread
+        mingw-w64-x86_64-zlib
+        mingw-w64-x86_64-libpng
+        mingw-w64-x86_64-libepoxy
+        mingw-w64-x86_64-freetype
+
 
     - name: Build app (64‑bit)
       run: |
