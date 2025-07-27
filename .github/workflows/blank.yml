@@ -43,6 +43,7 @@ jobs:
         for dll in \
           libatk-1.0-0.dll \
           libcairo-2.dll \
+          libcairo-gobject-2.dll \
           libepoxy-0.dll \
           libffi-8.dll \
           libfontconfig-1.dll \
