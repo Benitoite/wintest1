@@ -1,4 +1,4 @@
-name: Build GTK Native Bundle (GTK+GDK+JPEG+FriBidi, 64-bit)
+name: Build GTK App with Themed Bundle (64-bit, JPEG + FriBidi)
 
 on:
   push:
@@ -12,43 +12,58 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+    - name: Checkout source
+      uses: actions/checkout@v4
 
-      - name: Install MSYS2 with GTK3, GDK, JPEG, and FriBidi
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          update: true
-          install: >-
-            mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-gtk3
-            mingw-w64-x86_64-libjpeg-turbo
-            mingw-w64-x86_64-fribidi
-            mingw-w64-x86_64-pkg-config
+    - name: Install MSYS2 with GTK3, themes, JPEG, FriBidi
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-gtk3
+          mingw-w64-x86_64-libjpeg-turbo
+          mingw-w64-x86_64-fribidi
+          mingw-w64-x86_64-adwaita-icon-theme
+          mingw-w64-x86_64-hicolor-icon-theme
+          mingw-w64-x86_64-pkg-config
 
-      - name: Build executable
-        shell: msys2 {0}
-        run: |
-          g++ main.cpp -o gtk_native_window.exe \
-            `pkg-config --cflags --libs gtk+-3.0 fribidi libjpeg` \
-            -mwindows
+    - name: Build executable
+      shell: msys2 {0}
+      run: |
+        g++ main.cpp -o gtk_native_window.exe \
+          `pkg-config --cflags --libs gtk+-3.0 fribidi libjpeg` \
+          -mwindows
 
-      - name: Bundle GTK/GDK and dependencies
-        shell: msys2 {0}
-        run: |
-          mkdir -p bundle
-          cp gtk_native_window.exe bundle/
+    - name: Create portable bundle with themes
+      shell: msys2 {0}
+      run: |
+        mkdir -p bundle/share/themes
+        mkdir -p bundle/share/icons
 
-          # Automatically find and copy all runtime DLLs from mingw64
-          ldd gtk_native_window.exe | grep '/mingw64/bin/' | awk '{print $3}' | xargs -I{} cp -u "{}" bundle/
+        cp gtk_native_window.exe bundle/
 
-      - name: Zip the portable bundle
-        run: |
-          powershell Compress-Archive -Path bundle\* -DestinationPath gtk_native_window_bundle.zip
+        # Copy runtime DLLs from mingw64
+        ldd gtk_native_window.exe \
+          | grep '/mingw64/bin/' \
+          | awk '{print $3}' \
+          | xargs -I{} cp -u {} bundle/
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: gtk-native-bundle-x64
-          path: gtk_native_window_bundle.zip
+        # Copy Gtk themes from MSYS2 share directory
+        cp -r /mingw64/share/themes/Adwaita bundle/share/themes/
+        cp -r /mingw64/share/themes/Adwaita-dark bundle/share/themes/
+
+        # Copy icon themes
+        cp -r /mingw64/share/icons/Adwaita bundle/share/icons/
+        cp -r /mingw64/share/icons/hicolor bundle/share/icons/
+
+    - name: Zip the bundle
+      run: |
+        powershell Compress-Archive -Path bundle\* -DestinationPath gtk_native_window_bundle.zip
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: gtk-native-bundle-x64
+        path: gtk_native_window_bundle.zip
